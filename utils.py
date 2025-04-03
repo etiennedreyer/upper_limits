@@ -66,22 +66,27 @@ class Experiment():
         else:
             raise RuntimeError("Fit failed")
 
-    def q_mu(self):
+    def q_mu(self, data=None):
+
+        if data is None:
+            data = self.data
 
         ### Null hypothesis
         if self.bkg_sigma > 0:
             bu_hat = []
-            for data in self.data: ### Unfortunately, not vectorized :(
-                nll_fn = lambda bu: self.nll(self.mu, bu, data.reshape(1, -1))[0]
+            for data_i in data: ### Unfortunately, not vectorized :(
+                nll_fn = lambda bu: self.nll(self.mu, bu, data=data_i.reshape(1, -1))[0]
                 bu_hat.append(self.fit_scalar(nll_fn))
-            bu_hat = np.array(bu_hat).reshape(len(self.data), -1)
+                # if np.abs(bu_hat[-1] - 1) < 0.5:
+                #     print(f"WARNING: bu_hat is close to 1: {bu_hat[-1]}")
+            bu_hat = np.array(bu_hat).reshape(len(data), -1)
         else:
             bu_hat = 1
-        nll_null = self.nll(self.mu, bu_hat, verbose=True)
+        nll_null = self.nll(self.mu, bu_hat, data=data, verbose=True)
 
         ### Alternative hypothesis
-        mu_hat = ((self.data - 1*self.bkg) / (self.sig + 1e-8))
-        nll_alt = self.nll(mu_hat, 1)
+        mu_hat = ((data - 1*self.bkg) / (self.sig + 1e-8))
+        nll_alt = self.nll(mu_hat, bu=1, data=data)
 
         ### q_mu
         q_mu = 2 * (nll_null - nll_alt)
@@ -108,7 +113,7 @@ class Experiment():
 
     def get_q_distributions(self, mu_scan=None, n=10000):
         if mu_scan is None:
-            mu_scan = np.linspace(0, 5, 40)
+            mu_scan = np.linspace(self.mu, (self.mu + 1)*10, 20)
         ### make sure we have the most interesting mu values
         if 0.0 not in mu_scan:
             mu_scan = np.concatenate(([0.0], mu_scan))
@@ -118,10 +123,14 @@ class Experiment():
 
         self.q_distributions = {}
         for mu_inj in tqdm(mu_scan):
-            self.data = self.generate_data(mu_inj, n=n)
-            self.q_distributions[mu_inj] = self.q_mu()['q_mu']
+            toy_data = self.generate_data(mu_inj, n=n)
+            self.q_distributions[mu_inj] = self.q_mu(data=toy_data)['q_mu']
     
-    def get_upper_limit(self, q_hat):
+    def get_upper_limit(self, q_hat=None):
+
+        if q_hat is None:
+            fit_result = self.q_mu(self.data)
+            mu_hat, q_hat = fit_result['mu_hat'], fit_result['q_mu']
 
         if self.q_distributions == {}:
             raise RuntimeError("No q distributions found. Run get_q_distributions() first.")
@@ -142,7 +151,7 @@ class Experiment():
         p_left, p_right = get_p_values(q_dist_arr, q_hat)
 
         # get the right-tail p-value for null (mu_inj = mu)
-        mask = mu_inj_arr == self.mu ; assert mask.sum() == 1, f"More than one mu_inj = mu found: {mu_inj_arr[mask_null]}"
+        mask = mu_inj_arr == self.mu ; assert mask.sum() == 1, f"More than one mu_inj = mu found: {mu_inj_arr[mask]}"
         p_mu_null = p_right[mask][0]
 
         # get the left-tail p-value for alternate (mu_inj != mu)
@@ -154,7 +163,8 @@ class Experiment():
 
         # Find where CLs crosses alpha
         # assert np.all(np.diff(CLs) < 0), "CLs is not monotonic"
-        # assert mask.sum() > 0, f"CLs never crosses alpha={self.alpha}"
+        if (CLs < self.alpha).sum() == 0:
+            print(f"WARNING: CLs never crosses alpha={self.alpha}! Minimum CLs: {CLs.min()}")
         mu_inj_where_CLs_at_alpha = np.interp(self.alpha, CLs[::-1], mu_inj_alt[::-1])
 
         return_dict = {
