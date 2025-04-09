@@ -96,7 +96,6 @@ class Experiment():
                 raise RuntimeError("Discovery assumes mu=0")
             ### Eq. 12 of 1007.1727
             q_mu[mu_hat.flatten() < self.mu] = 0
-            # q_mu *= ((mu_hat >= self.mu).reshape(-1))
         else:
             ### Eq. 14 of 1007.1727
             q_mu[mu_hat.flatten() > self.mu] = 0
@@ -111,7 +110,7 @@ class Experiment():
 
         return return_dict
 
-    def get_q_distributions(self, mu_scan=None, n=10000):
+    def get_q_distributions(self, mu_scan=None, n=100000):
         if mu_scan is None:
             mu_scan = np.linspace(self.mu, (self.mu + 1)*10, 20)
         ### make sure we have the most interesting mu values
@@ -187,7 +186,7 @@ class Experiment():
         ax.plot(result['mu_inj_alt'], result['CLs'], label='$CL_s$', ls='-', color='purple')
         ax.axhline(y=self.alpha, color='k', ls=':', label='$\\alpha$')
         ax.scatter(result['mu_upper_limit'], self.alpha, color='k', marker='o', label='$\\mu_{UL}$', facecolors='none', edgecolors='k')
-        ax.set_xlabel('$q_{inj}$')
+        ax.set_xlabel('$\\mu_{inj}$')
         ax.set_ylabel('$p_{\\mu=' + f'{self.mu:.2f}' + '}$')
         ax.legend()
         
