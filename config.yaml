@@ -1,7 +1,8 @@
 mu: 0.0             # Signal strength under null hypothesis
-bkg: [10.0]          # Background expectation
-sig: [2.0]           # Signal expectation
+bkg: [10.0]         # Background expectation
+sig: [2.0]          # Signal expectation
 bkg_sigma: 0.0      # Uncertainty in background
 alpha: 0.05         # Confidence level (e.g., for hypothesis testing)
-limit_type: "CLs" # Type of limit: CLs, PCL
-discovery: true   # Determines which q value to use
+limit_type: "CLs"   # Type of limit: CLs, PCL
+discovery: false    # Determines which q value to use
+two_sided: false    # Two-sided test
